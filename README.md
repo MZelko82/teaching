@@ -47,7 +47,7 @@ A collection of presentations and teaching tools for statistics and research met
 
 | Folder | Topic | Description |
 |--------|-------|-------------|
-| [`pValue/`](./pValue/) | What is a p-value? | An animated, plain-language walkthrough — coin story, falling-dots simulation, common misconceptions |
+| [`pValue/`](./pValue/media/videos/pvalue_slides/1080p60/PValue.mp4) | What is a p-value? | An animated, plain-language walkthrough — coin story, falling-dots simulation, common misconceptions |
 
 ---
 

@@ -18,7 +18,8 @@ env/
 #   NOTE: slides/ is intentionally NOT ignored — it contains the packaged
 #   MP4s and PValue.json that `manim-slides present` needs to run.
 #
-**/media/videos/
+**/media/videos/*
+!/media/videos/pvalue_slides/1080p60/PValue.mp4
 **/media/Tex/
 **/media/images/
 **/media/texts/

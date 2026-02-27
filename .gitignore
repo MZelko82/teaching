@@ -26,3 +26,5 @@ env/
 
 # ── Claude Code local settings ────────────────────────────────────────────────
 .claude/
+
+presentation_style.md

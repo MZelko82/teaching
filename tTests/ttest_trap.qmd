@@ -1,0 +1,199 @@
+---
+title: "The Panadol Problem"
+subtitle: "Why the t-test shouldn't be your first choice"
+output-file: "ttest_trap.html"
+format:
+  revealjs:
+    slide-number: true
+    toc: false
+    transition: none
+    controls: true
+    center: true
+    auto-animate: false
+    chalkboard: false
+    overview: true
+    progress: true
+    embed-resources: true
+    theme: default
+    smaller: true
+execute:
+  echo: false
+  warning: false
+  message: false
+fig-align: center
+---
+
+## The reflex
+
+<br>
+
+You have a headache.
+
+. . .
+
+<br>
+
+You reach for **Panadol**.
+
+. . .
+
+<br>
+
+You didn't diagnose anything. You didn't rule anything out.
+
+It was just... the thing you reach for.
+
+---
+
+## That's the t-test
+
+<br>
+
+Two groups. Any question. Any data.
+
+. . .
+
+<br>
+
+*"I'll just run a t-test."*
+
+. . .
+
+<br>
+
+Panadol works for one specific type of pain.
+
+The t-test works for one very specific type of data.
+
+---
+
+## What the t-test needs
+
+<br>
+
+| Assumption | |
+|---|---|
+| Normally distributed data | ✓ |
+| Equal variance in both groups | ✓ |
+| Truly independent observations | ✓ |
+| Continuous measurements | ✓ |
+
+. . .
+
+<br>
+
+All of them. At the same time.
+
+---
+
+## What happens when they're violated
+
+<br>
+
+**Non-normality** → unreliable p-values with small samples
+
+**Unequal variance** → inflated false positive rate
+
+**Non-independence** → your *n* is smaller than you think
+
+**Count / proportion data** → the model is simply wrong
+
+. . .
+
+<br>
+
+The t-test doesn't warn you. It just gives you a number.
+
+---
+
+## Even when it's valid, there's a problem
+
+<br>
+
+The t-test sees **one source of variation** —
+
+the difference between your two groups.
+
+. . .
+
+<br>
+
+But your data has variation from many places:
+
+individual differences, batch effects, run-to-run noise...
+
+. . .
+
+<br>
+
+The t-test lumps it all together as **"error"**.
+
+---
+
+## That costs you power
+
+<br>
+
+$$t = \frac{\text{difference between groups}}{\textbf{all the variation in your data}}$$
+
+<br>
+
+. . .
+
+A larger denominator → smaller t → harder to detect real effects.
+
+. . .
+
+<br>
+
+Effects that exist become invisible — not because the biology is wrong,
+
+but because the test is carrying baggage it cannot put down.
+
+---
+
+## So when *should* you use a t-test?
+
+<br>
+
+When your data genuinely meets the assumptions.
+
+When there are no other meaningful sources of variation.
+
+When two groups is really all there is.
+
+. . .
+
+<br>
+
+Panadol is a good drug — for the right condition.
+
+. . .
+
+<br>
+
+The t-test is a good test — for the right data.
+
+---
+
+## The take-home
+
+<br>
+
+The t-test is not a safe default.
+
+It is a **specific choice** with real requirements.
+
+. . .
+
+<br>
+
+Ask not *"can I use a t-test?"*
+
+but **"should I?"**
+
+. . .
+
+<br>
+
+> *Start with the question. Let the data tell you the test.*

@@ -1,0 +1,161 @@
+---
+title: "CLT: Sampling Distribution of the Mean, Median & Mode"
+subtitle: "R simulation (knitr engine)"
+format:
+  html:
+    page-layout: full
+    code-fold: true
+    code-summary: "Show code"
+params:
+  alpha: 0
+  n: 2000
+  reps: 3000
+  seed: 42
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+# sn: skew-normal distribution (dsn, rsn, qsn)
+# moments: skewness()
+if (!requireNamespace("sn", quietly = TRUE)) {
+  install.packages("sn")
+}
+if (!requireNamespace("moments", quietly = TRUE)) {
+  install.packages("moments")
+}
+if (!requireNamespace("ggplot2", quietly = TRUE)) {
+  install.packages("ggplot2")
+}
+
+library(sn)
+library(moments)
+library(ggplot2)
+```
+
+
+## 1. Pick a population distribution
+
+Choose a skew for the parent population (using a skew-normal distribution),
+then look at its shape. Edit `params$alpha` (or pass `-P alpha:VALUE` to
+`quarto render`) to change the skew — no interactive widget is needed since
+this is a static R render, but you can re-render with different parameter
+values.
+
+```{r population}
+# params:
+alpha <- 20
+n <- 2000
+reps <- 120000
+seed <- 42
+
+# skew-normal(xi = location, omega = scale, alpha = shape)
+pop_x <- seq(
+  sn::qsn(0.001, xi = 0, omega = 1, alpha = alpha),
+  sn::qsn(0.999, xi = 0, omega = 1, alpha = alpha),
+  length.out = 500
+)
+pop_pdf <- sn::dsn(pop_x, xi = 0, omega = 1, alpha = alpha)
+
+pop_df <- data.frame(x = pop_x, density = pop_pdf)
+
+ggplot(pop_df, aes(x = x, y = density)) +
+  geom_line(color = "#3b6ea5") +
+  geom_area(fill = "#3b6ea5", alpha = 0.2) +
+  labs(
+    title = paste0("Population distribution (skew \u03B1 = ", alpha, ")"),
+    x = "x",
+    y = "density"
+  ) +
+  theme_minimal()
+```
+
+## 2. Draw samples
+
+For each repetition, draw a sample of size `n` from the population above.
+Both `n` and the number of repetitions (`reps`) are set as document
+parameters, so you can push these much higher than a marimo widget could
+comfortably handle — this chunk is plain R, so it scales with your available
+memory rather than a browser-based reactive runtime.
+
+```{r draw-samples}
+
+set.seed(seed)
+
+# reps x n matrix of draws — this is the part that needed to scale.
+# rsn() is vectorised; for very large reps*n consider batching if memory
+# becomes an issue (e.g. loop over chunks of reps and rbind/aggregate).
+samples <- matrix(
+  sn::rsn(reps * n, xi = 0, omega = 1, alpha = alpha),
+  nrow = reps,
+  ncol = n
+)
+
+cat(sprintf(
+  "Drew %d samples of size n = %d from the population above.\n",
+  reps,
+  n
+))
+```
+
+## 3. Distribution of the mean, median and mode
+
+For every sample, compute its mean, median, and (binned) mode, then look at
+how those three statistics are themselves distributed.
+
+```{r compute-statistics}
+sample_mode <- function(row, bins = 60) {
+  h <- hist(row, breaks = bins, plot = FALSE)
+  i <- which.max(h$counts)
+  (h$breaks[i] + h$breaks[i + 1]) / 2
+}
+
+sample_means <- rowMeans(samples)
+sample_medians <- apply(samples, 1, median)
+sample_modes <- apply(samples, 1, sample_mode)
+```
+
+```{r plot-statistics}
+#| fig-width: 7
+#| fig-height: 4
+stat_df <- data.frame(
+  value = c(sample_means, sample_medians, sample_modes),
+  statistic = rep(c("mean", "median", "mode"), each = reps)
+)
+
+ggplot(stat_df, aes(x = value, fill = statistic)) +
+  geom_density(alpha = 0.5) +
+  scale_fill_manual(
+    values = c(mean = "#3b6ea5", median = "#e08214", mode = "#5aa469")
+  ) +
+  labs(
+    title = paste0("Sampling distributions (n = ", n, ", reps = ", reps, ")"),
+    x = "statistic value",
+    y = "density"
+  ) +
+  theme_minimal()
+```
+
+```{r summary-table}
+summary_rows <- lapply(
+  list(mean = sample_means, median = sample_medians, mode = sample_modes),
+  function(v) {
+    data.frame(
+      avg = round(mean(v), 4),
+      std_error = round(sd(v), 4),
+      skewness = round(moments::skewness(v), 4)
+    )
+  }
+)
+
+summary_df <- do.call(rbind, summary_rows)
+summary_df <- cbind(statistic = rownames(summary_df), summary_df)
+rownames(summary_df) <- NULL
+
+knitr::kable(
+  summary_df,
+  align = "c",
+  caption = "Summary of sampling distributions"
+)
+```

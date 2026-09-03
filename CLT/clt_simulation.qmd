@@ -1,0 +1,144 @@
+---
+title: "CLT: Sampling Distribution of the Mean, Median & Mode"
+subtitle: "Interactive simulation with marimo"
+engine: marimo
+format:
+  html:
+    page-layout: full
+pyproject: |-
+  requires-python = ">=3.10"
+  dependencies = [
+      "marimo",
+      "numpy",
+      "scipy",
+      "matplotlib",
+      "pandas",
+  ]
+---
+
+## 1. Pick a population distribution
+
+Choose a skew for the parent population (using a skew-normal distribution),
+then look at its shape.
+
+```python {.marimo}
+import marimo as mo
+import numpy as np
+from scipy import stats
+import matplotlib.pyplot as plt
+import pandas as pd
+```
+
+```python {.marimo}
+skew_slider = mo.ui.slider(
+    start=-20, stop=20, step=1, value=0, label="Skewness (α)"
+)
+skew_slider
+```
+
+```python {.marimo}
+# Parent population: skew-normal(alpha=skew, loc=0, scale=1)
+alpha = skew_slider.value
+pop_dist = stats.skewnorm(a=alpha, loc=0, scale=1)
+
+pop_x = np.linspace(*pop_dist.ppf([0.001, 0.999]), 500)
+pop_pdf = pop_dist.pdf(pop_x)
+
+fig1, ax1 = plt.subplots(figsize=(6, 3.5))
+ax1.plot(pop_x, pop_pdf, color="#3b6ea5")
+ax1.fill_between(pop_x, pop_pdf, alpha=0.2, color="#3b6ea5")
+ax1.set_title(f"Population distribution (skew α = {alpha})")
+ax1.set_xlabel("x")
+ax1.set_ylabel("density")
+plt.close(fig1)
+fig1
+```
+
+## 2. Draw samples
+
+For each repetition, draw a sample of size `n` from the population above.
+`n` and the number of repetitions are both adjustable.
+
+```python {.marimo}
+n_slider = mo.ui.slider(
+    start=1000, stop=3000, step=1, value=2000, label="Sample size (n)"
+)
+reps_slider = mo.ui.slider(
+    start=1000, stop=5000, step=1000, value=3000, label="Number of samples (repetitions)"
+)
+mo.hstack([n_slider, reps_slider])
+```
+
+```python {.marimo}
+n = n_slider.value
+reps = reps_slider.value
+
+rng = np.random.default_rng(42)
+samples = pop_dist.rvs(size=(reps, n), random_state=rng)
+
+mo.md(f"Drew **{reps}** samples of size **n = {n}** from the population above.")
+```
+
+## 3. Distribution of the mean, median and mode
+
+For every sample, compute its mean, median, and (binned) mode, then look at
+how those three statistics are themselves distributed.
+
+```python {.marimo}
+def sample_mode(row, bins=30):
+    counts, edges = np.histogram(row, bins=bins)
+    i = np.argmax(counts)
+    return (edges[i] + edges[i + 1]) / 2
+
+sample_means = samples.mean(axis=1)
+sample_medians = np.median(samples, axis=1)
+sample_modes = np.apply_along_axis(sample_mode, 1, samples)
+```
+
+```python {.marimo}
+fig2, ax2 = plt.subplots(figsize=(7, 4))
+
+for _values, _label, _color in [
+    (sample_means, "mean", "#3b6ea5"),
+    (sample_medians, "median", "#e08214"),
+    (sample_modes, "mode", "#5aa469"),
+]:
+    ax2.hist(_values, bins=40, alpha=0.5, label=_label, color=_color, density=True)
+
+ax2.set_title(f"Sampling distributions (n = {n}, reps = {reps})")
+ax2.set_xlabel("statistic value")
+ax2.set_ylabel("density")
+ax2.legend()
+plt.close(fig2)
+fig2
+```
+
+```python {.marimo}
+summary_rows = []
+for _values, _label in [
+    (sample_means, "mean"),
+    (sample_medians, "median"),
+    (sample_modes, "mode"),
+]:
+    summary_rows.append(
+        {
+            "statistic": _label,
+            "avg": round(float(np.mean(_values)), 4),
+            "std_error": round(float(np.std(_values)), 4),
+            "skewness": round(float(stats.skew(_values, bias=False)), 4),
+        }
+    )
+
+# mo.ui.table(summary_rows, label="Summary of sampling distributions")
+summary_df = pd.DataFrame(summary_rows)
+mo.ui.table(
+    summary_df,
+    label="Summary of sampling distributions",
+    text_justify_columns={
+        "statistic": "center",
+        "avg": "center",
+        "std_error": "center",
+        "skewness": "center",
+    },
+)
+```

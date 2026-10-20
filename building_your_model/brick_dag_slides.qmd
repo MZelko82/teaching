@@ -1,0 +1,1835 @@
+---
+title: "Building a model for your study"
+subtitle: "Using multilevel, generalised linear and Bayesian models to make variance work for you"
+format:
+  revealjs:
+    css: brick_dag.css
+    width: 1200
+    height: 700
+    margin: 0.05
+    slide-number: true
+    # One self-contained HTML file (CSS, scripts, figs/ images inside it), so
+    # the deck can be sent as a single file (Matt, 2026-10-09)
+    embed-resources: true
+# LEGO border on the title slide, drawn by title_bricks() in brick_dag.R from
+# figs/title_background.png (Matt, 2026-10-09). on-title hides the menu
+# button, slide number and progress bar there (brick_dag.css), which would
+# sit on the corner bricks. To go back to a plain title slide, delete these
+# four lines.
+title-slide-attributes:
+  data-background-image: figs/title_bricks.svg
+  data-background-size: 100% 100%
+  data-state: on-title
+engine: knitr
+---
+
+```{r}
+#| include: false
+source("brick_dag.R")
+source("lego_figs.R") # data figures (B, A, shrinkage); needs pal from brick_dag.R
+save_title_bricks() # figs/title_bricks.svg, the title slide's LEGO border
+
+# Each DAG slide redraws the DAG: the steps in `shown` (or 1:upto) are static,
+# and the steps in `frag` arrive as fragments in that order
+# (frag[1] = fragment index 1, ...). Captions use the same fragment indices so
+# they change in sync with the DAG. On each click that adds pieces, everything
+# else dims (opacity set by --dag-dim in brick_dag.css); highlight = FALSE
+# turns this off for a slide. .r-stack + fade-in-then-out shows one caption at
+# a time in the same spot.
+#
+# Section map: show_map(from, to) opens with `from` (the section just covered)
+# highlighted; one click moves the highlight to `to` (the next section). Each
+# section ends with the slide that introduces the next one, then the map.
+#
+# This is the main deck: plain revealjs, everything static, no live demos
+# (Matt, 2026-10-09).
+# The diagrams are sized for width: 1200, height: 700, margin: 0.05.
+#
+# Data figures (lego_figs.R): show_steps(name, plots) stacks one image per
+# click; image k > 1 arrives at fragment index k - 1, so captions use the
+# same indices as on the DAG slides.
+```
+
+## About me: Dr Matt Zelko
+
+<!-- Three research areas as LEGO pictures, one per click, a caption
+under each (Matt, 2026-10-19; brick_dag.R show_about): behavioural
+analysis, population cycles and genetic inheritance, functional genomics
+and transcriptomics (helix -> gene network of coloured bricks). Slide 23's
+colours; taller, each picture with its caption, centred on the slide (Matt,
+2026-10-20). If a line goes above the pictures (e.g. a name), lower
+about_geom$top in brick_dag.R by its height. -->
+
+
+```{r}
+#| output: asis
+show_about()
+```
+
+
+##
+
+:::{.fragment .fade-in-then-semi-out .slogan-sm-g}
+Ideas, not numbers or equations
+:::
+
+<br>
+
+:::{.fragment .fade-in-then-semi-out .slogan-sm-g}
+Minimal jargon
+:::
+
+<br>
+
+:::{.fragment .fade-in-then-semi-out .slogan-sm-g}
+Ask questions at any time
+:::
+
+<br>
+
+::: {.fragment .fade-in-then-semi-out  .slogan-sm-bs}
+Today's pieces lead into future workshops <br> (multilevel modelling, causal inference)
+:::
+
+::: {.notes}
+Some of you will already know some of these pieces. I've tried to cover a
+range, as an introduction to each one, particularly the ones that future
+workshops will cover in more detail.
+:::
+
+## {.center}
+
+```{r}
+#| output: asis
+show_stack("drop")
+```
+
+<!-- The text under the stack sits in a fixed-height box (.stack-text), as
+on the next slide, so the centred stack lands in the same place on both
+(Matt, 2026-10-19). The old slide 6 merged in here (Matt, 2026-10-19):
+its two lines replace "Build the model that represents your study", and
+"The model isn't a description..." moves to third. -->
+
+:::: {.stack-text}
+::: {.fragment .fade-in-then-semi-out .slogan-sm-b}
+Build for your question and your design
+:::
+
+<br>
+
+::: {.fragment .fade-in-then-semi-out .slogan-sm-b}
+Better still, build it before you collect data
+:::
+
+::::
+
+::: {.notes}
+Build with the pieces your question and your study design call for, so
+your answer lands near the truth, with an honest sense of how sure you can
+be.
+
+Better still, do this before you collect data: shape the question and the
+model together, so you know in advance what you can answer and how sure
+you could be.
+:::
+
+
+
+## {.center}
+
+<!-- Title card (Reframe 2026-10-08; wording Matt's). The recap at the end
+repeats the slogan, one line per piece. -->
+
+
+<!-- The stack from slide 2, already built; the top brick lifts off with
+"Complexity" (Matt, 2026-10-09). The two text fragments carry explicit
+indices so the brick (index 1) moves with "Complexity", not before it. -->
+
+```{r}
+#| output: asis
+show_stack("lift", frag = 1)
+```
+
+:::: {.stack-text}
+::: {.slogan-sm-b}
+Every piece earns its place
+:::
+
+::: {.fragment .fade-in-then-semi-out .slogan-sm-g fragment-index=1}
+~~Complexity~~
+:::
+
+::: {.fragment .fade-in .slogan-sm-b fragment-index=2}
+**As simple as it needs to be**
+:::
+::::
+
+::: {.notes}
+Every piece earns its place: today we add one piece at a time and show
+what each one fixes.
+:::
+
+
+<!-- What can go wrong: one slide per comparison (Matt, 2026-10-17;
+rebuilt from the vault handoff "Handoff - Bias, variance and coverage
+animation", replacing the "What we want" + problem walls). Set up front so
+each section can point back to them (Matt's vault Scratchpad). Columns of
+repeats (brick_dag.R show_pair): a sketch with no numbers, 7 rows placed
+by hand; our experiment solid, imagined runs translucent and dashed. Each
+slide compares two columns that differ in exactly one thing; the left
+column's bricks never move between slides (auto-animate), the rest fades
+in. The spread bracket from the variance slide stays under the coverage
+columns: honest plates are as long as the bracket, overconfident ones
+shorter. That is the link between variance and coverage. Definitions use
+the handoff's wording in the deck's words (answer, plate, true answer);
+"95%" is the only number (Matt: "convention"). Untitled; definitions are
+placeholders (Matt rewords). -->
+
+<!-- "ask, then build" for the three later transitions waits on
+IDEAS_what_each_piece_fixes.md (§1-3): its questions replace the planned
+comments below. -->
+
+<!-- Opens on our experiment alone, large in the middle (Matt, 2026-10-09:
+the answer comes from one experiment, but how good it is refers to
+repeats); click 1 names the brick ("our best guess") and the plate ("how
+far off our guess could be"; Matt, 2026-10-17); click 2 a bell rises
+around our brick, the plate across its middle (the plate comes from how
+uncertain the guess is); click 3 our experiment shrinks into the left
+column, bell and plate fade (no plates until coverage) and the other runs
+grow in; click 4 the biased column, row by row; click 5 the average
+markers; click 6 the definition. -->
+
+## {auto-animate=true}
+
+:::: {.repeat-row}
+```{r}
+#| output: asis
+show_pair(
+  list("unbiased", zoom = TRUE, avg = 6),
+  list("biased", rows = 5, avg = 6)
+)
+```
+
+<!-- Click 4 (Matt, 2026-10-18): names the imagined runs as the
+frequentist idea, once, on its own click; gone at the next click (the
+biased column), so the later clicks move up one (biased 5, averages 6,
+definition 7). The Bayesian contrast comes at the start of Section 4.
+r-stack: the definition sits where it does on slides 7-9. -->
+
+::: {.repeat-def .r-stack}
+::: {.fragment .fade-in-then-out fragment-index=4}
+Frequentists imagine many runs so we can judge how sure we can be
+:::
+::: {.fragment fragment-index=7}
+**Bias** is where the answers are centred, relative to the true answer
+:::
+:::
+::::
+
+::: {.notes}
+One study gives one answer and one plate. This is our experiment: the
+brick is our best guess, and the plate shows how far off that guess could
+be. The plate is the middle of a bell around the guess: the wider the
+bell, the less sure we can be. We only ever have this one row. We built
+the data, so we know the true answer.
+
+The plate is a claim about something we never see: if we ran the same
+study again and again, the answers would land about this far apart. Bias,
+variance and coverage are all about those imagined runs. We'll leave the
+plates aside for now and come back to them.
+
+These imagined runs are how the frequentist approach (the usual one)
+judges how sure we can be: its plate is a promise about them. We can also
+use them to check any method, including the Bayesian one at the end.
+
+Unbiased: the answers are centred on the true answer. Biased: the same
+scatter, centred off to one side. Running the study more often doesn't
+help; the average stays in the wrong place.
+:::
+
+<!-- Low vs high variance: the same bricks, the right column 2.5 times as
+spread (same order, our experiment in the same row, now well away from
+the line). Click 1 a bell over each column (how the answers spread) with
+its spread bracket (the bell's middle), click 2 the definition. -->
+
+## {auto-animate=true}
+
+:::: {.repeat-row}
+```{r}
+#| output: asis
+show_pair(
+  list("low", bracket = 1),
+  list("high", bracket = 1)
+)
+```
+
+::: {.fragment .repeat-def fragment-index=2}
+**Variance** is how spread out the answers are across repeated runs
+:::
+::::
+
+::: {.notes}
+Both columns are centred on the true answer. The only difference is how
+spread out the answers are. The bell shows how the answers would pile up
+over many runs; the bracket measures the middle of it.
+
+Our experiment is the same run in both columns. With low variance it lands
+near the true answer; with high variance the same run lands well away.
+This is the variance of the answer from run to run, not the variance in
+the data.
+:::
+
+<!-- Honest vs overconfident plates: identical bricks, the bells and
+brackets kept from the variance slide. Click 1 one plate per brick, row by
+row (honest = as long as the bracket; overconfident = much shorter); click
+2 our brick's own bell (grey, the plate's bell, as on the zoom) beside the
+column's: as wide when honest, much narrower when overconfident; click 3
+the plates that miss turn red (4 of 7, both sides, our experiment among
+them); click 4 the definition. -->
+
+## {auto-animate=true}
+
+:::: {.repeat-row}
+```{r}
+#| output: asis
+show_pair(
+  list("honest", bracket = 0, plates = 1, ownbell = 2, miss = 3),
+  list("over", bracket = 0, plates = 1, ownbell = 2, miss = 3)
+)
+```
+
+::: {.fragment .repeat-def fragment-index=4}
+**Coverage** is how often each run's plate reaches the true answer, compared with how often it promises to (often set at 95%)
+:::
+::::
+
+::: {.notes}
+**Same answers in both columns: honest plates are as long as the real
+spread, so they reach the true answer as often as they promise;
+overconfident plates are too short, so they miss more often.**
+
+Same bricks in both columns; only the plates differ. In a real study we
+see one row, and its plate comes from the standard error: that run's own
+guess at how spread out the bricks would be across all runs. The grey
+bell is our brick's own bell, the one its plate comes from. Honest: it is
+as wide as the real spread of the bricks, so the plate is as long as the
+bracket. Overconfident: it is much narrower than the real spread, so the
+plates are short and many miss.
+
+A 95% plate promises to reach the true answer in about 95 of every 100
+runs. That is a promise about the procedure (same design, same model, new
+data each time), not about our one plate. Honest doesn't mean always
+right: with many more runs, about 1 in 20 honest plates would miss too.
+With only 7 runs drawn here, none of them do.
+
+Coverage can't be checked in a real study; only a simulation with a known
+true answer can check it. It fails when the plate is shorter than the real
+spread (for example counting 120 builds as if they were 120 separate
+sessions), or when the answers are biased (next slide). The other
+direction (plates too long: less sure than we need to be) is also a
+coverage problem.
+:::
+
+<!-- Bias breaks coverage too: both columns have honest plates (as long as
+the bracket); the right column's bricks are shifted as on the bias slide,
+its bracket centred on its average. Click 1 the misses turn red (4 of 7,
+all on the far side), click 2 the line. -->
+
+## {auto-animate=true}
+
+:::: {.repeat-row}
+```{r}
+#| output: asis
+show_pair(
+  list("unbiased_honest", bracket = 0, plates = 0, miss = 1),
+  list("biased_honest", bracket = 0, plates = 0, miss = 1)
+)
+```
+
+::: {.fragment .repeat-def fragment-index=2}
+Honest plates still miss when the answers are centred in the wrong place
+:::
+::::
+
+::: {.notes}
+Both columns have honest plates, as long as the spread. But the biased
+answers are centred to one side, so the plates miss on that side, more
+often than they promise. Bias breaks coverage too.
+:::
+
+## {.center}
+
+<!-- Summary of the three problems (Matt, 2026-10-17): the biased, high
+variance and overconfident columns side by side, one line each, one per
+click (brick_dag.R show_column). Lines Matt's (bias / vary / cover), also
+under the towers on the next slide; all three goals since 2026-10-19 late
+(Matt). -->
+
+:::: {.repeat-row .repeat-summary}
+::: {.fragment}
+```{r}
+#| output: asis
+show_column("biased", avg = 0)
+```
+
+Answers **centre** on the truth
+:::
+
+::: {.fragment}
+```{r}
+#| output: asis
+show_column("high", bracket = 0)
+```
+
+Answers **vary** no more <br> than they need to
+:::
+
+::: {.fragment}
+```{r}
+#| output: asis
+show_column("over", bracket = 0, plates = 0, ownbell = 0, miss = 0)
+```
+
+Plates **cover** the truth <br> as often as they claim
+:::
+::::
+
+::: {.notes}
+Three ways to go wrong. Bias: the answers land to one side. Variance: the
+answers spread more than they need to. Coverage: each plate should be as
+long as the spread; here they are shorter, so they claim more certainty
+than the spread allows.
+:::
+
+
+## Adding pieces
+
+<!-- One tower per problem (Matt, 2026-10-09): a grey base brick with the
+technical name, the section bricks that fix it stacked on top in talk
+order (brick_dag.R show_fixes). Opens on the three bases; one click per
+section adds that section's brick to every tower it fixes: Building the
+model (Bias, Coverage), Multilevel (Coverage; off Variance since
+2026-10-19, Matt: partial pooling's trade is for one session's level, not
+the instruction answer, so its columns slide was cut), GLM (Bias; off
+Coverage since 2026-10-18, Matt: its coverage picture was cut), Bayesian
+(Variance since 2026-10-19, Matt: the sensible-prior slide, 38; Coverage).
+Coverage ends tallest: it is the talk's main thread. Title is a
+placeholder (Matt rewords). -->
+
+```{r}
+#| output: asis
+show_fixes(shown = 1, frag = 2:5)
+```
+
+::: {.notes}
+Each tower is one of the problems we just saw.
+
+We are building up the pieces here: each section adds a brick to the
+towers it helps, the way LEGO bricks lock together, overlapping the brick
+below. The sideways overlap is just how bricks stack; it doesn't mean
+"off to one side" the way the shifted bricks did on the bias slides.
+(Neil read the offset as bias; Matt kept the offset and says this aloud,
+2026-10-17.)
+
+Building the model: choosing which pieces go in, and which stay out,
+keeps the answers centred on the true answer; counting the evidence the
+right way makes the plates long enough.
+
+Multilevel structure: when the data come in groups, the model counts the
+evidence by group itself, without us doing it by hand.
+
+GLM: a model that matches the kind of outcome we have, so the answers
+aren't pulled to one side.
+
+Priors: writing down what we already know keeps the answers from varying
+more than they need to, and keeps the plates honest when data are thin.
+
+Coverage is the tallest tower: most of today is about how sure we can be.
+:::
+
+## {.center}
+
+<!-- Map (parked, Matt 2026-10-08): make the returns to the map work more
+like revealjs_demo.qmd's code-line highlight ("|1|2|3"): open on the whole
+map, then zoom in on each section's brick as that section starts, keeping
+the other bricks faded. -->
+
+```{r}
+#| output: asis
+show_map(to = "build")
+```
+
+<!-- ===== Section 1 (blue): building the model (variance, then the collider) ===== -->
+
+## The LEGO experiment
+
+<!-- Design figure (Matt, 2026-10-08), replacing the bullet list: plates =
+sessions, toy figures = people, small red-on-blue models = builds (two per
+person), manuals = format (same instruction drawn or written). Sessions are
+shown when the slide opens; three clicks add format (the sessions split
+into two sets; Matt, 2026-10-09: format comes first), then people, then
+builds. Design steps keep their numbers (3 = format, 2 = people, 4 =
+builds); frag sets the order. -->
+
+```{r}
+#| output: asis
+show_design(shown = 1, frag = c(3, 2, 4))
+```
+
+<!-- No caption of its own on click 1 (format): the manuals' bands say
+"Picture" and "Text", so "6 testing sessions" stays on. Figures per plate
+are a visual (1-6), so the caption gives the study's total, not a
+per-session range. -->
+
+::: {.r-stack}
+::: {.dag-note .fragment .fade-out fragment-index=2}
+6 testing sessions
+:::
+::: {.dag-note .fragment .fade-in-then-out fragment-index=2}
+60 people, and sessions have different numbers of builders
+:::
+::: {.dag-note .fragment fragment-index=3}
+Everyone builds twice
+:::
+:::
+
+::: {.notes}
+A simulated study, which is why every slide can show the true answer.
+Each session gets one format because the room, experimenter and manuals
+go together. Sessions have 4 to 16 people.
+:::
+
+## Does the instruction format change errors? {.center}
+
+```{r}
+#| output: asis
+show_dag(upto = 0, frag = 1, layout = "centre")
+```
+
+<!-- The question on its own click, after the DAG (Matt's Scratchpad,
+2026-10-18). -->
+
+::: {.dag-note .fragment fragment-index=2}
+60 people, 120 builds. But how many independent pieces of evidence?
+:::
+
+::: {.notes}
+Hold on to this question: how many independent pieces of evidence do we
+have?
+:::
+
+##
+
+<!-- Sequence B as distributions (Matt, 2026-10-09; lego_figs.R
+seq_b_cloud_plots): the formats as two normal curves, their difference as a
+small curve above (anchored so "no difference" = the picture average), the
+sessions as small curves underneath. Counting the 6 session averages as
+the data makes the difference curve wider. One piece per click (Matt,
+2026-10-09): formats, difference, sessions, wider difference. Captions are
+placeholders.
+
+The original columns version is parked, not deleted. To restore it, use
+show_steps("seq_b", seq_b_plots()) and these four captions (indices
+fade-out 1 / 1 / 2 / 3; written for the 12-session design, so its layout
+and the "12"s need updating): "Text instructions look better. Counted as 120
+separate builds, we look very sure." / "Each column is one session. Whole
+sessions run high or low together." / "Format was decided only 12 times.
+These 12 session averages are the real evidence." / "Same data, two
+answers. Counting builds makes us falsely sure." -->
+
+```{r}
+#| output: asis
+show_steps("seq_b_cloud", seq_b_cloud_plots(), height = 5.4)
+```
+
+::: {.r-stack}
+::: {.dag-note .fragment .fade-out fragment-index=1}
+Lots of overlap, but the text condition shows fewer errors on average.
+:::
+::: {.dag-note .fragment .fade-in-then-out fragment-index=1}
+Counted as 120 separate builds, the difference looks certain.
+:::
+::: {.dag-note .long .fragment .fade-in-then-out fragment-index=2}
+In reality, instruction format was decided only 6 times <br> (three sessions for each instruction format).
+:::
+::: {.dag-note .fragment fragment-index=3}
+Same data, two answers <br> Counting each build as a independent makes us falsely sure.
+:::
+:::
+
+::: {.notes}
+One simulated dataset, chosen so the contrast is clear. The difference curve
+sits on the same axis as the errors, lined up so the dashed line (level
+with the picture average) means "no difference". Counting builds, it stays
+clear of the line; counting the 6 session averages, it spreads well across
+it.
+Format was decided 6 times, so that's our evidence about it.
+:::
+
+---
+
+<!-- Untitled DAG slide: explains the format sequence. Session factors joins
+Instructions on the "per session" baseplate. Click 2 (Matt, 2026-10-18)
+swaps the caption for the design lesson, replacing the planned "More
+people or more sessions?" slide (SIMULATIONS_lego_example.md C), which
+was dropped. -->
+
+```{r}
+#| output: asis
+show_dag(shown = 1, frag = 2)
+```
+
+::: {.r-stack}
+::: {.dag-note .fragment .fade-in-then-out fragment-index=1}
+Instructions and the session change together, once per session <br>
+6 pieces of independent evidence, not 120.
+:::
+::: {.dag-note .fragment fragment-index=2}
+Here, we want more sessions, not just more builds
+:::
+:::
+
+::: {.notes}
+Format was decided once per session, so sessions are the evidence. More
+people sharpen each session's average, but sessions still differ for
+reasons we never measured, and more people can't remove that. Past a
+point, only more sessions make us more sure about the instruction
+format: ten times the people barely helps; twice the sessions helps a
+lot. Plan this before collecting data.
+:::
+
+## The same people, building twice
+
+<!-- Sequence A is explained on this DAG alone (Matt, 2026-10-09); the data
+figure (lego_figs.R seq_a_plots) is no longer shown, and this slide took
+its title. Session factors point into both builds, so comparing a
+session's build 1 with its own build 2 cancels what the session shares; the
+same people build twice, so their traits cancel too. The only slide with
+Learning and Participant traits (Matt, 2026-10-08), so it uses the "full"
+layout (bottom row). Clicks (Matt, 2026-10-09): the split into build 1 /
+build 2 (4), then Learning (14), then Participant traits (13). Captions
+are placeholders. -->
+
+```{r}
+#| output: asis
+show_dag(shown = 1:2, frag = c(4, 14, 13), layout = "full")
+```
+
+::: {.r-stack}
+::: {.dag-note .fragment .fade-in-then-out fragment-index=1}
+Everyone builds twice, so errors split into build 1 and build 2
+:::
+::: {.dag-note .fragment .fade-in-then-out fragment-index=2}
+Time matters: people learn between builds
+:::
+::: {.dag-note .fragment fragment-index=3}
+People differ too, in ways we never measure
+:::
+:::
+
+::: {.notes}
+Within a session the same people build twice, so their differences cancel
+too. Don't say the comparison is helped by sessions alone.
+
+Accuracy line (HANDOFF_brick_dag_2026-10-19_evening.md §5): the full model for these data also needs a term
+for each person, because everyone built twice. We keep the story on
+sessions.
+:::
+
+##
+
+<!-- Not centred (Matt, 2026-10-18: "shift everything on this slide up"):
+the figure starts at the top of the slide. -->
+
+<!-- Moved by Matt (2026-10-09) from the Section 1 opener to after the
+sequence A DAG, where the Variance components placeholder was: it sums up
+A (less sure than we need to be). Wording Matt's.
+Return to "Wrong about how sure" (slide 8) on our one dataset (Matt,
+2026-10-09; brick_dag.R show_return). Matt commented the text out; the
+figure now has the slide. Click 1 shows it (the fragment div), click 2 the
+problem row (learning as two separate piles: plate too long), click 3 the
+fixed row (each person against themselves). The format pair (120 builds
+-> 6 sessions) was cut (Matt, 2026-10-20): the format plate's point is on
+slide 26 only, so this is now one pair (labels to the right of the rows). -->
+
+<!-- Errors vary for lots of reasons: the session, the person, the build.
+
+::: {.fragment fragment-index=1}
+Each question has to be checked against the right part of that variation.
+:::
+
+::: {.fragment fragment-index=2}
+Get it wrong, and we end up more sure, or less sure, than we should be.
+::: -->
+
+::: {.fragment fragment-index=1}
+```{r}
+#| output: asis
+show_return("coverage", shown = 1, frag = 2:3, offset = 1)
+```
+:::
+
+::: {.notes}
+Same data, two ways of checking learning. Treating the builds as two
+separate piles gives a plate far longer than it needs to be: it reaches the
+true answer more often than it promises, so we are less sure than we could
+be. Comparing each person with themselves gives a short plate that still
+reaches it.
+
+We come back to the format answer's plate at the end of the next section.
+:::
+
+##
+
+<!-- Asks the question the collider answers ("ask, then build"). The DAG is
+the one the collider slide opens on; the red arrives on the next slide.
+Since 2026-10-09 the collider is the end of Section 1 (Matt: the causal
+section was folded in), so no map sits between them. Wording Matt's.
+One slide with the collider (Matt, 2026-10-18: "have the same DAG for
+both"): the ask and the collider were two slides, and the collider's
+three-line caption (.xlong) shrank its DAG, so it jumped. Now one DAG,
+the same size throughout. Untitled, with the title as an overlay that
+fades out with click 1 (brick_dag.css .overlay-title). Click 1 the ask;
+click 2 the collider in red (DAG step 5, offset 1) with the red caption;
+click 3 the hand-off to Stef's talk (Matt, 2026-10-08). Caption reframed
+(Reframe §3): the piece that looks useful but breaks the build; no "trap"
+or "path" on the headline. -->
+
+<!-- The red path one hop at a time (Matt, 2026-10-19: show that the
+collider pushes back through session factors into build 2). Click 2 the
+box round Build 1 errors (step 5) with the red caption; click 3 the two
+arrows into it turn red (17); click 4 Session factors -> Build 2 and the
+Instructions -> Build 2 arc turn red (18): the answer the open path
+damages. No note on the arc: "no difference" is the next slide's point
+(Matt, 2026-10-19). The red caption stays from click 2 to 4 (an outer
+fade-out at 5 around an inner fade-in at 2); click 5 the hand-off to
+Stef's talk. -->
+
+<!-- ::: {.overlay-title .fragment .fade-out fragment-index=1}
+Back to the simpler model
+::: -->
+
+```{r}
+#| output: asis
+show_dag(shown = c(1, 2, 4), frag = c(5, 17, 18), offset = 1)
+```
+
+::: {.r-stack}
+::: {.dag-note .fragment .fade-in-then-out fragment-index=1}
+Errors on the first build predict errors on the second build well, but...
+:::
+
+::: {.fragment .fade-out fragment-index=5}
+::: {.dag-note .long .xlong .warn .fragment fragment-index=2}
+Adding errors on the first build to the model looks useful, <br> but it breaks the build
+:::
+:::
+
+::: {.dag-note .fragment fragment-index=5}
+More in Dr Stephanie Aarsman's upcoming workshop
+:::
+
+:::
+
+::: {.notes}
+Adding errors on the first build means comparing builders who made the
+same number of errors the first time.
+
+Two builders each made, say, 8 errors on build 1. One had picture
+instructions: about what picture instructions produce, so nothing unusual
+about their session. The other had text instructions, which should have
+given fewer. To make 8 anyway, their session was probably worse: a noisier
+room, a less clear experimenter.
+
+So once we hold build-1 errors fixed, text instructions go with worse
+sessions. Nothing causes that link; it's what we can work out about the
+session. Worse sessions add errors on build 2 too, which hides part of the
+real benefit of text.
+
+The same happens through people's own traits, which this picture leaves
+out.
+
+The red arc is the answer being damaged, not part of the path. The path
+is Instructions → Build 1 ← Session → Build 2.
+:::
+
+## 
+
+<!-- Back to bias and coverage, after the collider (Matt, 2026-10-17:
+literal title; show both). Columns of repeats (brick_dag.R show_pair,
+"build1_out" / "build1_in"), placed to make the point, which the
+backstage check confirms (HANDOFF 2026-10-09 evening section 5, 400
+repeats: leaving build-1 errors out centres near the truth, adding them
+centres near "no difference" and always shortens the plates). Never say
+our one answer moved further from the truth: in our data it landed
+closer. Click 1 the average markers (bias: the build-1 column sits near
+the dashed "no difference" line), click 2 the bells, brackets and plates
+(the build-1 plates are short), click 3 the misses turn red (coverage).
+Wider columns, narrower text (.repeat-wide; Matt, 2026-10-18). -->
+
+:::: {.repeat-row .repeat-wide}
+```{r}
+#| output: asis
+show_pair(
+    list(
+        "build1_out",
+        avg = 1,
+        avg_out = TRUE,
+        bracket = 2,
+        plates = 2,
+        miss = 3
+    ),
+    list(
+        "build1_in",
+        avg = 1,
+        avg_out = TRUE,
+        bracket = 2,
+        plates = 2,
+        miss = 3
+    ),
+    tie = FALSE
+)
+```
+
+::: {.repeat-def}
+::: {.fragment fragment-index=1}
+**Bias:** the answers centre near "no difference", not the true answer
+:::
+
+::: {.fragment fragment-index=3}
+**Coverage:** the plates are short and centred in the wrong place, so most miss the true answer
+:::
+:::
+::::
+
+::: {.notes}
+Imagine running the study many times, with and without build-1 errors in
+the model. Leaving them out, the answers centre on the true answer and
+the plates reach it. Adding them pulls the answers toward "no
+difference": that is bias. It also shortens the plates, so they miss the
+true answer, as on the "bias breaks coverage" slide but worse: we become
+sure that the instruction format makes no difference.
+
+(In our one dataset, the answer with build-1 errors happened to land
+closer to the truth. What goes wrong is where the answers centre and how
+sure we become.)
+:::
+
+## Back to the simpler model
+
+<!-- Ends Section 1 with a question, the DAG unchanged ("ask, then build";
+Matt, 2026-10-09): the map follows, and Section 2 opens by turning Session
+factors yellow. Question agreed (Matt, 2026-10-09); title a placeholder. -->
+
+```{r}
+#| output: asis
+show_dag(upto = 6) # one Errors brick again (step 6; Matt, 2026-10-18)
+```
+
+::: {.dag-note .fragment fragment-index=1}
+We never measured what makes sessions differ
+:::
+
+::: {.dag-note .fragment fragment-index=2}
+How can the model account for it anyway?
+:::
+
+::: {.notes}
+From here, one Errors brick; the question is the sessions.
+:::
+
+
+## {.center}
+
+```{r}
+#| output: asis
+show_map(from = "build", to = "multilevel")
+```
+
+<!-- ===== Section 2 (yellow): multilevel structure ===== -->
+
+## When format is given by session, the session is the unit
+
+<!-- Before the random-effect DAG (Matt, 2026-10-20; replaces the 19 Oct
+"what a random effect allows for, and what it assumes" explainer: the
+confounding half and the dice are cut). brick_dag.R show_rooms, drawn by
+hand in the next-but-one slide's look. Opens on the left half, format
+given to each person: builds scattered, the format averages and the gap;
+click 1 caption, people; click 2 the right half, format given to each
+session: the same gap, builds in yellow session bands; click 3 caption,
+sessions; click 4 the rule, which stays (Matt's "test the effect against
+the variation among the units it was assigned to", made plainer; given to
+people, the yardstick is how much people differ, not build-level noise:
+that needs each person to build with both formats). "More people per
+session barely helps" is now in the notes; slide 16's "Here, we want more
+sessions, not just more builds" says it on screen (Matt: keep both). Title
+and captions placeholders; Matt rewords. -->
+
+```{r}
+#| output: asis
+show_rooms(frag = 2)
+```
+
+::: {.r-stack}
+::: {.dag-note .long .fragment .fade-in-then-out fragment-index=1}
+If each person got their own format, <br> the difference would have to stand out from how much people differ
+:::
+
+::: {.dag-note .long .fragment .fade-in-then-out fragment-index=3}
+In our study, each session got a format, <br> so the difference must stand out from how much sessions differ
+:::
+
+::: {.dag-note .long .fragment fragment-index=4}
+Whatever gets the format, people or sessions, <br> the difference must stand out from how much they differ
+:::
+:::
+
+::: {.notes}
+**Judge a difference against how much the things that got the format
+differ. Our sessions got the format, so the difference must stand out from
+how much sessions differ. If each person had got their own format, it
+would only have to stand out from how much people differ.**
+
+Left: format given to each person. Each small model is one person's build;
+the dashed lines are the formats' averages, the bar between them the gap.
+People differ a lot, but with many people their differences average out of
+each format's average.
+
+Right: the same gap, but the builds come in sessions (yellow). Builds in a
+session share a room and an experimenter, so they run high or low together,
+and every build in a session had the same format. So each format's average
+rests on three sessions, not thirty people.
+
+So more people per session barely helps: they make each session's average
+sharper, but they can't change how much sessions differ. Only more
+sessions average those differences out. The next slide adds the piece that
+lets the model see this: a random effect, which learns how much sessions
+differ.
+
+If asked, what if each person built once with each format? Then each
+person is compared with themselves, and the difference only has to stand
+out from how much one person's builds vary, as with learning on slide 17.
+Giving formats to people within sessions does something similar for
+sessions: every session has both formats, so how much sessions differ
+cancels out.
+
+The picture spreads the sessions further apart than our study does: there,
+sessions differ about as much as builds within a session do.
+
+If asked, how much does each help? In our design, twice the people per
+session makes the format answer's plate a few percent shorter; twice the
+sessions, about 30% shorter. The more sessions differ compared with people,
+the sooner more people stop helping.
+
+If asked, why not put session in as an ordinary factor? Every session has
+one format, so the session terms soak up the format. R returns NA for
+format, or, if format is listed first, a "format" number that is really
+one session compared with another.
+:::
+
+## Building in a random effect
+
+<!-- Opens Section 2 (+8), answering the question that ended Section 1:
+Session factors turns yellow, a random intercept. -->
+
+```{r}
+#| output: asis
+show_dag(upto = 7, frag = 8)
+```
+
+
+<!-- Click 3 replaces both captions with the pointer to David's workshop
+(Matt, 2026-10-19): the two captions sit in a fade-out wrapper, in an
+r-stack with the new line, so it takes their place and the DAG doesn't
+move. Caption 2 rewritten (Matt, 2026-10-19 late; was "Use it to build the
+uncertainty of each format's answer."): with caption 1 that is three lines
+on a titled slide, so .long .xlong .xxlong (as slide 29) shrinks the DAG
+for the whole slide (.long alone is taller than this DAG already is).
+Caption 1 ("Sessions differ from one another") dropped (Matt, 2026-10-19
+late): the explainer slide before this one says it; click 1 is the yellow
+Session brick alone. -->
+
+::: {.r-stack}
+::: {.fragment .fade-out fragment-index=3}
+::: {.dag-note .long .xlong .xxlong .fragment fragment-index=2}
+The model learns how much sessions differ, <br> so it knows how sure to be about each format's answer
+:::
+:::
+
+::: {.dag-note .fragment fragment-index=3}
+More information in Dr David Skvarc's upcoming workshop
+:::
+:::
+
+::: {.notes}
+A model with a random effect is a multilevel model.
+
+It knows format was decided only 6 times, so it sets how sure we can be
+about each format's answer.
+
+Nothing points into Instructions: the formats were handed out at random.
+:::
+
+## Partial pooling: pulling each session toward its format's average {data-state="credit-mcelreath"}
+
+<!-- Step 9: shrinkage figure (lego_figs.R shrink_plots), no DAG change.
+Small sessions are pulled further toward their format's average. Seed 503:
+the 4-person session is pulled 43% of the way, the 16-person one 16%; click
+2 shows that pair (the small one starts closer but moves further).
+Captions are placeholders. The credit "After McElreath, Statistical
+Rethinking" sits left of the slide number (Matt, 2026-10-09): data-state
+puts a class on the page while this slide shows, and brick_dag.css writes
+the credit into the slide-number box. -->
+
+::: {.notes}
+Figure after McElreath, Statistical Rethinking (the credit is beside the
+slide number).
+
+Open circles: each session's own average; bigger circles, more people.
+Dashed line: the format's average. Yellow: the model's answer for each
+session. The 4-person session moves further than the 16-person one,
+though it started closer: less information.
+
+Sessions are pulled toward their format's average from both sides, so the
+format answer itself stays put. What carries on: the model learns how
+much sessions differ.
+:::
+
+```{r}
+#| output: asis
+show_steps("shrink", shrink_plots(), height = 5.4)
+```
+
+::: {.r-stack}
+::: {.dag-note .fragment .fade-out fragment-index=1}
+Each session's own average. Bigger circles are bigger sessions
+:::
+::: {.dag-note .fragment .fade-in-then-out fragment-index=1}
+The multilevel model pulls each session toward its format's average
+:::
+::: {.dag-note .long .fade-in-then-out .fragment fragment-index=2}
+The smallest session moves further than the biggest
+:::
+
+:::
+
+##
+
+<!-- Not centred (Matt, 2026-10-18): top-aligned, as slide 18. -->
+
+<!-- Multilevel's Coverage fix, back to "Wrong about how sure" (slide 8) on
+our one dataset (Matt, 2026-10-09; brick_dag.R show_return "ml_coverage"),
+now the last slide of Section 2 (Matt, 2026-10-17: the piece, how it
+works, then what it fixes). Untitled (Matt's Scratchpad: title "The model
+counts the sessions" removed). Labelled "Instruction format" so it isn't
+read as the same answer as the columns slide before it (one session's
+level). Opens on the heading and the true answer; click 1 "counting 120
+builds" (plate stops short of the line), click 2 "multilevel model"
+(longer, reaches it) with the bridging caption (Matt, 2026-10-17; wording
+a placeholder): the random intercept does what counting the 6 session
+averages did by hand (slide 15). Since 2026-10-20 the only slide with the
+format plate (Matt: slide 18's format pair cut). The partial-pooling columns slide that sat before this one
+was cut (Matt, 2026-10-19): its bias was in one session's level, but read
+as the instruction answer, which partial pooling leaves centred. The
+notes' "last slide" is now the partial-pooling figure, which works the
+same way. -->
+
+```{r}
+#| output: asis
+show_return("ml_coverage")
+```
+
+<!-- ::: {.dag-note .fragment fragment-index=2}
+Knowing how much sessions differ, the model counts the evidence as sessions, not builds
+::: -->
+
+::: {.notes}
+Back to our question: does the instruction format change errors? This is
+a different answer from the last slide: the format difference, not one
+session's level. The same thing drives both: the model learns how much
+sessions differ. On the last slide that set how hard each session is
+pulled; here it tells the model that format was decided only 6 times.
+
+Same data. Counting 120 builds, the format plate is too short and stops
+before the true answer. The multilevel model, with a level for each
+session, gets a plate that reaches it, without us counting sessions by
+hand. (With only 6 sessions it is still a little too sure; a small-sample
+correction, or the prior in Section 4, finishes the job.)
+
+This is one run. One miss proves nothing on its own; across many runs,
+counting builds misses far more often than it promises.
+:::
+
+## What kind of outcome is it?
+
+<!-- Ends Section 2 with a question, the DAG unchanged ("ask, then build";
+Matt, 2026-10-09): the NegBin and Normal/Gaussian plates go on at the
+start of Section 3, after the map. Question agreed (Matt, 2026-10-09). -->
+
+```{r}
+#| output: asis
+show_dag(upto = 9)
+```
+
+::: {.dag-note .fragment fragment-index=1}
+Errors are counts. Can a build have fewer than no errors?
+:::
+
+## {.center}
+
+```{r}
+#| output: asis
+show_map(from = "multilevel", to = "glm")
+```
+
+::: {.notes}
+GLM: generalised linear model, a model matched to the outcome's shape.
+:::
+
+<!-- ===== Section 3 (orange): GLM / distributions ===== -->
+
+##
+
+<!-- Opens Section 3, before the DAG (Matt, 2026-10-19: this picture sets
+up the problem, so the DAG's Normal -> Poisson -> NegBin sequence on the
+next slide answers it; was after the DAG slide). -->
+
+<!-- How the count model works (Matt, 2026-10-18): the general case, drawn
+by hand (brick_dag.R show_counts), not the study data. Errors in a build
+where many people make none and some make one or two (Matt, 2026-10-18;
+"bricks in the wrong colour" dropped): one brick per build, stacked over its number of errors.
+Transformed vs count model (Matt, 2026-10-19; Option E in the vault note
+"2026-10-19 Count model return - what it fixes"): click 1 the plain
+normal model's curve (yellow) with its part below "no errors" red, the
+negative-numbers problem (briefly dropped, restored by Matt); click 2 it
+fades and the transformed model's line arrives (yellow: still a normal
+model, on log(errors + 1)), drawn by hand and exaggerated (Matt,
+2026-10-19: "slightly wrong mathematically", to make the point): piled
+high at the low end, a thin tail, so it sits lower than the count model;
+click 3 the count model's line (orange); the yellow line stays. Slide 31
+shows the consequence run after run.
+Each curve arrives with a pointer naming it in its colour, as slide 6's
+brick and plate (Matt, 2026-10-18); pointers only, no captions (Matt,
+2026-10-19). Untitled, as the other figure slides. "Yellow" above is
+light orange since 2026-10-19 late (Matt: yellow is the random effect's
+colour; pal$orange light). -->
+
+```{r}
+#| output: asis
+show_counts()
+```
+
+::: {.r-stack}
+::: {.dag-note .fragment .fade-out fragment-index=1}
+Many builds have no errors; some have one or two
+:::
+<!-- ::: {.dag-note .fragment .fade-in-then-out fragment-index=1}
+A [normal model]{.bell-word} expects some builds to have fewer than no errors
+:::
+::: {.dag-note .fragment .fade-in-then-out fragment-index=2}
+Usually we'd [transform]{.bell-word} the errors to fit the long tail
+:::
+::: {.dag-note .fragment fragment-index=3}
+A [count model]{.count-word} fits the counts as they are
+::: -->
+:::
+
+::: {.notes}
+**With counts like these, a normal model expects builds with fewer than no
+errors, a transformed model fixes that but comes back too low, and a count
+model fits the counts as they are.**
+
+A general case, not our study: a build where many people make no errors
+and some make one or two. Each brick is one build, stacked over how many
+errors it had. A few builds have more. Skewed, with a long tail.
+
+A normal model on the errors as they are, with the same average and
+spread, is symmetric, so it spills past "no errors": it expects some
+builds to have fewer than no errors, which can't happen (the red part).
+It also misses the pile at no errors and the long tail on the right.
+
+The usual fix is to transform the errors first, for example taking logs
+(of errors plus one, so no errors still works), fitting a normal model to
+that, then converting the answer back to errors. The light orange line is that
+transformed model, shown back on the error scale. No more impossible
+values, but squeezing the tail gives the few builds with many errors less
+weight, so it piles up at the low end. Converted back, its answer
+describes a typical build, which is lower than the average build.
+
+The count model describes the counts as they are: whole numbers from no
+errors upwards, with a long tail. The orange line. (It is a negative
+binomial: these counts vary more than the simplest count model, the
+Poisson, expects.)
+
+The picture exaggerates the gap to make it visible; next we'll see what it
+does to our answer, run after run. (Our main study's error counts are
+high, so there the plain normal model does fine; the trouble starts when
+counts are low.)
+:::
+
+## A count model
+
+<!-- Section 3's DAG step (+10), after the stacks figure (Matt, 2026-10-19;
+it opened the section until then): an orange NegBin plate on the Errors brick.
+Only the outcome's distribution (Matt, 2026-10-18: "we are just focusing
+on the DV distribution"; the Normal/Gaussian plate on Session factors and
+its caption half were dropped). Title a placeholder. Click 1: a
+"Transform" plate, slide 29's transformed model (step 16), no caption;
+click 2 Poisson replaces it (step 15), "Instead of transforming our
+distribution, we use a Poisson..."; click 3 NegBin replaces Poisson (step
+10). Matt, 2026-10-19: "Errors are counts" / "Counts are not negative and
+low" dropped (no longer valid after slide 29's transformed model). -->
+
+```{r}
+#| output: asis
+show_dag(upto = 9, frag = c(16, 15, 10))
+```
+
+<!-- Captions one at a time in one spot (Matt, 2026-10-19): an r-stack, as
+slide 23. The Poisson caption is three lines on a titled slide, so it is
+.long .xlong .xxlong: the DAG shrinks for the whole slide (section:has
+rule), so it doesn't jump between clicks. -->
+
+::: {.r-stack}
+::: {.dag-note .long .xlong .xxlong .fragment .fade-in-then-out fragment-index=2}
+Instead of transforming our distribution, <br> we use a Poisson distribution when our spread grows <br> with the average value
+:::
+
+::: {.dag-note .long .fragment .fade-in-then-out fragment-index=3}
+When counts vary more than that, <br> we use a negative binomial (NegBin)
+:::
+
+:::
+
+::: {.notes}
+Click 1: the transformed model from the last slide. Click 2: Poisson, where
+the average sets how much counts vary. Click 3: NegBin, for counts that
+vary more than that, for example because some people are more
+error-prone. NegBin stays on the diagram from here.
+:::
+
+##
+
+<!-- The count model's Bias fix (the piece, how it works, then what it
+fixes). Option E (Matt, 2026-10-19; vault note "2026-10-19 Count model
+return - what it fixes"): the format answer, transformed model vs count
+model. Columns of repeats (brick_dag.R show_pair, "glm_trans" /
+"glm_count"), the general case placed by hand: the transformed model
+centres one run-to-run spread low (the desktop chat's 300 repeats: 0.36
+to 0.9 spreads), the count model on the true answer. One change: the
+centre. Click 1 the averages and the Bias line (a placeholder; Matt
+rewords). Headings in the lines' colours, as on slide 29. Never claim the
+transform makes the format difference look smaller: with session effects
+it doesn't. No Coverage picture: GLM is on the Bias tower only (slide
+11). -->
+
+:::: {.repeat-row .repeat-wide}
+```{r}
+#| output: asis
+show_pair(
+    list("glm_trans", avg = 1),
+    list("glm_count", avg = 1),
+    tie = FALSE
+)
+```
+
+::: {.repeat-def}
+Errors per format?
+
+<br>
+
+::: {.fragment fragment-index=1}
+**Bias:** the [transformed model's]{.bell-word} answers centre too low
+:::
+:::
+::::
+
+::: {.notes}
+**Run after run, the transformed model's answers centre too low, while the
+count model's centre on the true answer.**
+
+Back to our question: how many errors does each format give? Imagine
+running the study many times and fitting both models each time.
+
+The transformed model works on the log scale. Averaging there and
+converting back gives a typical build, not the average build: squeezing
+the long tail gives the few builds with many errors less weight, so the
+answer comes back too low, run after run. That is bias.
+
+The count model works with the errors as they are, so its answers centre
+on the true answer. One catch: in a model with sessions and people, the
+answer has to be averaged over sessions and people too. The quick
+version, the answer for a typical session, also comes back a little low
+(in brms, posterior_epred with re_formula = NA gives the quick version).
+
+How low? In a check of 300 repeats of our design, about a third to a
+whole run's spread, depending on how the errors arise. The picture shows
+the general case.
+
+The comparison between formats as a ratio (how many times as many errors
+text gives as pictures) is fine under every model at our study's error
+counts; it is each format's own answer that
+the transform pulls down. A plain normal model on the raw errors would
+also centre on the true average; its problem was the shape, not the
+average.
+:::
+
+##
+
+<!-- The family of models (Matt, 2026-10-18; after the Bias return, as Matt
+placed it): match the model to the outcome's shape. Slide 29's look with
+lines only (brick_dag.R show_family): three LEGO outcomes side by side,
+one per click, each with its own baseline, words at its limits and
+density lines. Time to finish (orange), share of bricks correct (orange),
+then "Number of errors" (format colours): distributional regression,
+where the spread depends on format as well as the average (Matt,
+2026-10-18, replacing "Finished or not", too simple). Headings in plain
+words; model names (gamma, beta, distributional) only in the notes (five
+technical terms are already named). Caption on from the start; a
+placeholder (Matt rewords). -->
+
+```{r}
+#| output: asis
+show_family()
+```
+
+::: {.dag-note}
+Pick the model whose shape matches your outcome
+:::
+
+::: {.notes}
+Counts are one case. The same idea works for any outcome: choose the
+model whose shape matches what the outcome can and can't do.
+
+Time to finish: never less than no time, and a few builds take much
+longer. A gamma model, for example.
+
+Share of bricks correct: between none and all, and most builds are close
+to all. A beta model, for example.
+
+Number of errors, picture vs text: the shape itself can depend on a predictor. Here
+text instructions give fewer errors and more consistent builds: a
+narrower curve. A distributional model lets the spread, not just the
+average, differ by format. (Strictly this goes beyond GLMs; in brms it is
+one extra line for the spread.)
+
+The normal and count models, and the gamma model for time, are
+generalised linear models (GLMs). More in a future workshop.
+:::
+
+## With 6 sessions, can we tell how much sessions differ?
+
+<!-- Ends Section 3 with a question, the DAG unchanged ("ask, then build";
+Matt, 2026-10-09): the prior plate goes on at the start of Section 4,
+after the map. Question agreed (Matt, 2026-10-09). The question is the
+title (Matt, 2026-10-19 late; was "Uncertainty about the variance itself",
+"variance" in the sessions sense), so the caption that asked it ("We only
+have 6 sessions. Is that enough to tell how much sessions differ?") and
+its click went, as on slide 34. -->
+
+```{r}
+#| output: asis
+show_dag(upto = 10)
+```
+
+::: {.notes}
+With 6 sessions, how much sessions differ is itself uncertain; a
+frequentist fit treats its one guess as known.
+:::
+
+## {.center}
+
+```{r}
+#| output: asis
+show_map(from = "glm", to = "bayes")
+```
+
+<!-- ===== Section 4 (green): Bayesian / priors ===== -->
+
+
+
+## Do text instructions lead to fewer errors?
+
+<!-- Revised 2026-10-19 (Matt's brief): the way people intuitively read a
+frequentist result is the Bayesian reading. Lay audience: no numbers, no
+new concepts. Opens Section 4, before the prior goes on the DAG
+(brick_dag.R show_answers). Two columns with the same brick on the same
+plate. Click 1 the imagined runs (frequentist); 2 the bell after the
+data (Bayesian); 3 the dashed "no difference" lines, crossing the plate
+as in our study, and the bell's text side shaded; 4 the shared sentence
+"Text probably leads to fewer errors." (italic, below the plots); 5 red cross, "Tempting, but not allowed." + why; 6 green tick, "Allowed." + why. (The
+punchline "Most people already read results the Bayesian way." was
+removed completely, Matt, 2026-10-19.) The green
+prior curve, "prior", "<- text: fewer errors" and all earlier captions
+were removed, so "prior" first appears on slide 36 (the notes here still
+introduce it aloud). "posterior" and "credible interval" in the notes
+only. The summary slide's middle panel calls back to this slide. -->
+
+```{r}
+#| output: asis
+show_answers()
+```
+
+::: {.notes}
+**Same plate, two readings: "text probably leads to fewer errors" is
+tempting but not allowed from the frequentist plate, and exactly what the
+Bayesian answer allows.**
+
+First, what Bayesian gives us; then back to that question.
+
+Same data, same plate, two ways of reading it. Same length here to keep
+the comparison simple; with few sessions the Bayesian plate comes out
+longer (slide 38).
+
+Frequentist, the usual approach and what we've used so far: the plate is
+a promise about the method. Run the study again and again (the faint
+plates), and plates made this way reach the true answer most of the time.
+
+Bayesian: start from what we believed before seeing the data (a prior;
+the next slide puts one on the model), then let the data update it. What
+comes out is this hill: where the true answer probably is, given the data
+(technically the posterior; the plate under it is a credible interval).
+
+Our plate crosses "no difference", as it did with our 6 sessions, but
+most of it, and most of the hill, sits on the text side.
+
+So the sentence everyone wants to write: text probably leads to fewer
+errors.
+
+From the frequentist plate, that sentence is tempting but not allowed:
+the method catches the truth most of the time, but it says nothing about
+how likely this particular plate is to hold it, or how likely it is that
+text helps. (If asked: "not significant" fairly means we couldn't rule
+out no difference; it still can't say how likely it is that text helps.)
+
+From the Bayesian hill, it is exactly what the hill answers: most of it
+is on the text side, so text probably helps, though we can't be sure.
+
+The two plates are different objects, but we can still check either one
+against the imagined runs: how often does it reach the true answer? That
+is how this section ends.
+:::
+
+## A prior on how much sessions differ
+
+<!-- Section 4's DAG step (+11), after the contrast: the green prior plate
+stacks on Session factors (the baseplate grows to hold it; on the
+Normal/Gaussian plate until that was dropped, 2026-10-18). Title a
+placeholder. -->
+
+```{r}
+#| output: asis
+show_dag(upto = 10, frag = 11)
+```
+
+::: {.dag-note .fragment fragment-index=1}
+How much sessions differ gets a prior, <br> so our uncertainty about it carries through to every answer
+:::
+
+::: {.notes}
+In a Bayesian model every piece gets a prior. The one on the diagram is
+the prior on how much sessions differ; we meet a second one later in this
+section.
+
+Strictly, what carries the uncertainty through is the Bayesian fit itself:
+it keeps every amount of difference that fits the data and averages the
+answer over them. The prior is what makes that possible, and it keeps how
+much sessions differ from being pinned at exactly zero.
+:::
+
+## One guess at how much sessions differ, or every amount that fits
+
+<!-- How the prior works (Matt, 2026-10-19; IDEAS section 3 visual 1), the
+general case drawn by hand (brick_dag.R show_spread): how much sessions
+differ along one baseline, "sessions alike" to "differ a lot", no
+numbers. Click 1 the usual fit's one guess (a yellow brick: session level
+is yellow); click 2 the prior (green: highest at "alike", falling
+gently, the half-normal shape used in practice; Matt, 2026-10-19); click
+3 the curve after the data (yellow): still wide with 6 sessions, peaking
+over the brick. Captions one at a time in one spot, the last stays.
+Title and captions placeholders (Matt rewords). -->
+
+```{r}
+#| output: asis
+show_spread()
+```
+
+::: {.r-stack}
+::: {.dag-note .fragment .fade-in-then-out fragment-index=1}
+A frequentist fit makes one guess
+:::
+
+::: {.dag-note .fragment .fade-in-then-out fragment-index=2}
+The prior, what we expect before the data: <br> modest differences likely, big ones allowed
+:::
+
+::: {.dag-note .fragment fragment-index=3}
+With 6 sessions, many amounts of difference still fit the data
+:::
+:::
+
+::: {.notes}
+How much do sessions differ? That number sets how sure we can be about
+the format answer, so it matters.
+
+The frequentist fit makes one guess, the single most likely value, and then
+carries on as if it were exactly right.
+
+The Bayesian model starts from a prior: modest differences are likely,
+big ones are allowed. This is the kind of prior people actually use, not
+"anything goes".
+
+After the data, many amounts of difference still fit: with only 6
+sessions, the data can't pin it down. The Bayesian model keeps all of
+them, weighted by how well they fit, instead of betting on one.
+
+Backstage, not to say as a number: in our simulated study the one guess
+was well below how much sessions really differ, and the data fit anything from no
+difference at all upwards.
+:::
+
+##
+
+<!-- The prior's Coverage fix (Matt, 2026-10-19; the piece, how it works,
+then what it fixes): slide 8's honest / overconfident columns, lean (no
+bells or brackets), for the format answer, the general case for a count
+model with few sessions (brick_dag.R show_pair, "bayes_known" /
+"bayes_prior"; drawn by hand, not simulated). Same bricks; one change:
+the plate. Headings in the colours of the last slide's pieces (yellow
+brick, green prior). Click 1 the plates, click 2 the misses turn red
+(rows 1 and 7 of "One guess"; our experiment reaches the line, as on
+slide 26), click 3 the Coverage line (wording a placeholder). Nothing
+here claims Bias or Variance: the Bayesian brick's place on slide 11's
+Variance tower comes from the next slide. -->
+
+:::: {.repeat-row}
+```{r}
+#| output: asis
+show_pair(
+    list("bayes_known", plates = 1, miss = 2),
+    list("bayes_prior", plates = 1, miss = 2),
+    tie = FALSE
+)
+```
+
+::: {.repeat-def}
+Instruction format
+
+<br>
+
+::: {.fragment fragment-index=3}
+**Coverage:** the plates are too short and miss more often than they promise; <br> with a prior, they reach the true answer about as often as they claim
+:::
+:::
+::::
+
+::: {.notes}
+Back to our question, the instruction format, now with the count model.
+Imagine running the study many times. Same answers in both columns; only
+the plates differ.
+
+With one guess of how much sessions differ, treated as known, the plates come out a
+little too short, so they miss more often than the promised 1 in 20. The
+picture exaggerates how short they are. This is what the usual
+count-model software gives by default. (Profile or
+bootstrap plates partly allow for the uncertainty; for the normal model,
+small-sample corrections do the job without a prior.)
+
+With a prior on how much sessions differ, that uncertainty carries into
+the format answer: the plates are longer, and they
+reach the true answer about as often as they claim. That is the usual
+pattern with few groups and a sensible prior; we haven't simulated it
+here.
+
+Our own experiment reached the true answer either way, as on the
+multilevel slide. Coverage is about the procedure across runs, not one
+plate.
+:::
+
+##
+
+<!-- The Bayesian piece's Variance fix (Matt, 2026-10-19, from the vault
+handoff "Sensible prior bias-variance trade-off"; Matt chose: after the
+Coverage return, the prior in the bell strip, "Almost no prior" drawn very
+wide, Bayesian added to slide 11's Variance tower). The layout of the cut
+partial-pooling columns slide (Matt, 2026-10-19), but for the format
+answer ("Instruction format" above the columns); since the cut, the first
+three-column comparison, so the notes set it up. A different prior from slide 35's:
+a prior on the format answer, not on the spread. The general case with
+thin data, drawn by hand (positions and the check in brick_dag.R,
+"fx_none" / "fx_sensible" / "fx_strong"). One change between columns: how
+strong the prior is (green, centred on the dashed "no difference" line).
+Opens on "Almost no prior" with its prior; click 1 the sensible prior and
+its column, row by row; click 2 the brackets; click 3 average markers;
+click 4 "Very strong prior"; click 5 the closing line. Captions follow
+the cut partial-pooling slide's (placeholders; Matt rewords). -->
+
+::: {.dag-note}
+Instruction format
+:::
+
+:::: {.repeat-row .repeat-trio .repeat-labelled}
+```{r}
+#| output: asis
+show_trio(
+    list("fx_none", prior = 0, bracket = 2, bell = FALSE, avg = 3),
+    list(
+        "fx_sensible",
+        rows = 1,
+        prior = 1,
+        bracket = 2,
+        bell = FALSE,
+        avg = 3
+    ),
+    list("fx_strong", rows = 4, prior = 4, avg = 4, avg_low = TRUE)
+)
+```
+::::
+
+::: {.r-stack}
+::: {.dag-note .fragment .fade-in-then-out fragment-index=2}
+Less **variance**: the answers spread much less
+:::
+::: {.dag-note .fragment .fade-in-then-out fragment-index=3}
+A little **bias**: they are pulled toward "no difference"
+:::
+::: {.dag-note .fragment .fade-in-then-out fragment-index=4}
+Pulled all the way: no spread, but well off-centre
+:::
+::: {.dag-note .fragment fragment-index=5}
+Overall, the answers with a sensible prior sit closest to the true answer
+:::
+:::
+
+::: {.notes}
+**A sensible prior pulls the answers a little toward "no difference" but
+makes them vary much less, so overall they land closest to the true
+answer.**
+
+Imagine running the study many times and working out the instruction
+answer each time, one brick per run, as on the variance slides at the
+start. The only change between the columns is how strong a prior we put
+on that answer. This is a different prior from the one on how much sessions differ: a
+prior on the format answer itself, centred on "no difference".
+
+Almost no prior: the answers are centred on the true answer but spread
+widely. A sensible prior says big effects are unlikely, not that there is
+no effect: the answers are pulled a little toward "no difference" and
+spread much less. A very strong prior at "no difference" swamps the data:
+every answer lands on "no difference", no spread, always off by the same
+amount.
+
+Being a little off-centre is worth it when the answers become much less
+spread out, so the middle column sits closest to the true answer overall.
+
+Why pull toward "no difference"? It is the cautious direction: the prior
+makes us a little slower to claim an effect, not quicker.
+
+Unlike the collider (slide 20), which also pulled the answers toward "no
+difference": this pull is stated openly in the prior, it is small, and it
+fades as the data grow. The collider's pull was hidden, and it made the
+plates too short as well.
+
+This is the general case, when data are thin (here, few sessions per
+format), not a claim about our study's data. With plenty of data the
+prior's pull fades, and the first two columns look alike. A
+sensible prior helps when the true effect is the size we expected; if the
+true effect were huge, a prior that called it unlikely would cost more
+than it saves.
+:::
+
+## Frequentist fits work for many designs
+
+<!-- The section's summary (Matt, 2026-10-19, grilled first; was "Bayesian
+is a piece too"): sell switching to Bayesian as a whole approach, not just
+a prior on the spread. Opening line on from the start; three small panels
+(brick_dag.R show_benefits), one per click, each calling back to its
+full-size picture (38, 35, 37); the line under each carries any condition
+(honest plates matter when data are thin). Click 4 keeps the old slide's
+limit. "It earns it with few groups, small samples, or a model that won't
+run" went: panel 1 says it. Left out on purpose: "it may decide sessions
+don't differ at all" (rare at the simulated spread; cut before) and any
+claim that frequentist fits can't give honest plates (small-sample
+corrections exist for the linear model). -->
+
+<br>
+
+```{r}
+#| output: asis
+show_benefits()
+```
+
+<br>
+
+::: {.dag-note .fragment fragment-index=4}
+It can't rescue a model built from the wrong pieces.
+:::
+
+::: {.notes}
+**Frequentist fits work for many designs; Bayesian adds three things:
+honest plates, particularly when data are thin; a statement of where the
+true answer probably is; and an open way to use what we already know.**
+
+For many designs, with plenty of data at every level, the usual
+frequentist fit and a Bayesian fit give similar answers. For simple linear
+models there are also small-sample corrections. So this isn't "frequentist
+is wrong". It's what you gain by switching.
+
+Honest plates, particularly when data are thin: with few groups, small samples or
+a complex model, the frequentist fit treats its guess at things like how much
+sessions differ as known, so its plates come out too short. The
+Bayesian fit keeps every value that fits the data, so its plates are as
+long as they should be, and reach the true answer about as often as they
+claim. (Slide 38.)
+
+Says where the true answer probably is: a Bayesian plate is a statement
+about this study: the true difference probably lies in here. It can also
+say directly how likely it is that text instructions lead to fewer errors:
+the shaded part of the bell. That's the question people actually ask; a
+frequentist plate is a promise about many imagined runs. (Slide 35.)
+
+If asked "doesn't a bootstrapped interval do this?": the bootstrap
+re-draws our own data to imagine the re-runs, so its plate makes the same
+promise as any frequentist plate. Its hill is answers across re-runs, not
+where the true answer probably is: "93% of re-run answers favour text" is
+not "a 93% chance text helps". With plenty of data the numbers are often
+close to a Bayesian answer with a vague prior; the difference is what
+you're allowed to say. (The Bayesian bootstrap does allow the "probably"
+reading, because it is a Bayesian method.) In our study the bootstrap is
+also thin: re-drawing builds is the 120-builds mistake; re-drawing 3
+sessions per format gives only 10 combinations per format and plates
+about a fifth too short.
+
+Uses what we already know, openly: we know sessions of people building
+LEGO won't differ by enormous amounts, and error counts sit in a
+believable range. The prior writes that down where everyone can see it.
+(Slide 37.)
+
+If asked "isn't that subjective?": the prior is stated and can be checked.
+If a reasonable change to the prior changes the answer, that tells you the
+data are thin.
+
+Last click: it can't rescue a model built from the wrong pieces, like the
+collider or ignoring the sessions.
+:::
+
+## The finished build
+
+```{r}
+#| output: asis
+show_dag(upto = 12)
+```
+
+::: {.notes}
+Session: the random effect, so the model counts the evidence as sessions.
+NegBin: the outcome is counts. Prior: carries our uncertainty about how
+much sessions differ. Left out on purpose: errors on the first build
+(slide 20).
+
+The diagram shows the prior on how much sessions differ; the prior on the
+format answer (slide 39) isn't drawn.
+:::
+
+## Every piece earns its place
+
+<!-- Recap as the towers again (Matt, 2026-10-19; replaces the five-line
+list, which predated Option E, slide 38 and slide 39): slide 11's picture
+rebuilt, same show_fixes() call, one click per section adding its bricks
+to every tower it fixes; the caption under the towers says how that
+section earned each brick (tower word bold), fading at the next click; the
+last stays. Each line claims only what its section showed: Coverage for
+the multilevel model is "counts sessions itself", not "as sure as the
+design allows" (slide 38: still a little short with 6 sessions); the count
+model's Bias fix is against the transform (slide 31), not "no impossible
+predictions" (the transform has none either); the collider line is about
+the answers across runs, not our one answer (ours landed closer). Captions
+are placeholders (Matt rewords). .recap in brick_dag.css is now unused.
+Multilevel is off the Variance tower (Matt, 2026-10-19: partial pooling's
+trade is for one session's level, not the instruction answer), so its
+caption is the Coverage line only. -->
+
+```{r}
+#| output: asis
+show_fixes(shown = 1, frag = 2:5, vb = "0 170 1200 410")
+```
+
+::: {.r-stack}
+::: {.dag-note .long .fragment .fade-in-then-out fragment-index=1}
+**Bias:** leave out errors on the first build <br>
+**Coverage:** count the evidence as sessions, not builds
+:::
+::: {.dag-note .fragment .fade-in-then-out fragment-index=2}
+**Coverage:** a random effect lets the model count sessions itself
+:::
+::: {.dag-note .fragment .fade-in-then-out fragment-index=3}
+**Bias:** a count model avoids systematically low answers
+:::
+::: {.dag-note .long .fragment fragment-index=4}
+**Variance:** a sensible prior on the format answer <br>
+**Coverage:** a prior on how much sessions differ
+:::
+:::
+
+::: {.notes}
+The same towers as at the start, now with how each brick was earned.
+
+Building the model: leaving errors on the first build out keeps the
+answers centred on the true answer (slide 20); counting 6 sessions, not
+120 builds, stops us being falsely sure (slide 15).
+
+Multilevel: the random effect learns how much sessions differ, so the
+model counts the evidence as sessions without us doing it by hand (slide
+26). With 6 sessions its plates are still a little short; the prior
+finishes that job.
+
+Count model: each format's answer centres on the true answer; the
+transformed model's comes back too low (slide 31).
+
+Bayesian: a sensible prior on the format answer trades a little bias for
+much less spread (slide 39); a prior on how much sessions differ carries
+that uncertainty into the plates, so they reach the true answer about as
+often as they claim (slide 38). And it lets us say what we wanted to say
+all along: text probably leads to fewer errors (slide 35).
+
+Coverage is the tallest tower: most of today was about how sure we can be.
+
+Back to the subtitle: making variance work for you means building the
+model so that how much the data vary (between sessions, in the counts)
+sets how sure we can be.
+:::
+
+## {.center}
+
+<!-- Closing slide (Matt, 2026-10-19; wording Matt's): two lists side by
+side, each with the brick markers (.brick-list) and arriving whole on its
+click (click 1 next steps, click 2 thanks), then click 3 the questions.
+Nothing fades, so the next steps stay up during questions. Full names and
+titles, as slides 19 and 23 give Stef and Dave. -->
+
+:::: {.columns .closing}
+::: {.column width="50%" .fragment fragment-index=1}
+**Next steps**
+
+::: {.brick-list}
+- Come to the workshops
+- Talk to the Data Science team
+- Play with LEGO
+:::
+:::
+
+::: {.column width="50%" .fragment fragment-index=2}
+**Thanks**
+
+::: {.brick-list}
+- Dr Neil Bailey
+- Dr Stephanie Aarsman
+- Dr David Skvarc
+:::
+:::
+::::
+
+<br>
+
+::: {.fragment .slogan fragment-index=3}
+Any questions?
+:::
